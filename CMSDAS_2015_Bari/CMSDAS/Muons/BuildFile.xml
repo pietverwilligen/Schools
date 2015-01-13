@@ -2,7 +2,6 @@
 <use name="rootcintex"/>
 <use name="rootrflx"/>
 <use name="rootcintex"/>
-<use name="rootrflx"/>
 <use name="roofitcore"/>
 <use name="FWCore/Framework"/>
 <use name="FWCore/ParameterSet"/>
