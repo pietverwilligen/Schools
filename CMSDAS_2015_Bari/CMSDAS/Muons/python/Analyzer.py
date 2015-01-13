@@ -20,25 +20,11 @@ class Analyzer (object):
         self.corrector     = ROOT.MuScleFitCorrector(getFullPath("MuScleFit/Calibration/data/MuScleFit_2012D_DATA_53X.txt"))
 #        self.corrector = ROOT.rochcor2012()
 #        self.corrector = ROOT.MuScleFitCorrector(getFullPath("MuScleFit/Calibration/data/MuScleFit_2012ABC_DATA_53X.txt"))
+        self.signPlotBeforeCut = None
+        self.signPlotAfterCut = None
+        self.backPlotBeforeCut = None
+        self.backPlotAfterCut = None
         self.processFunc = None
-
-        self.histograms    = {}
-        self.histograms['pt']  = {}
-        self.histograms['eta'] = {}
-
-        self.histograms['pt']['mu2_sign_all'] = ROOT.TH1F("mu2_pt_sign_all", "mu2_pt_sign_all", 40, 20, 100)
-        self.histograms['pt']['mu2_sign_sel'] = ROOT.TH1F("mu2_pt_sign_sel", "mu2_pt_sign_sel", 40, 20, 100)
-        self.histograms['pt']['mu2_sign_eff'] = ROOT.TH1F("mu2_pt_sign_eff", "mu2_pt_sign_eff", 40, 20, 100)
-        self.histograms['pt']['mu2_back_all'] = ROOT.TH1F("mu2_pt_back_all", "mu2_pt_back_all", 40, 20, 100)
-        self.histograms['pt']['mu2_back_sel'] = ROOT.TH1F("mu2_pt_back_sel", "mu2_pt_back_sel", 40, 20, 100)
-        self.histograms['pt']['mu2_back_eff'] = ROOT.TH1F("mu2_pt_back_eff", "mu2_pt_back_eff", 40, 20, 100)
-        self.histograms['eta']['mu2_sign_all'] = ROOT.TH1F("mu2_eta_sign_all", "mu2_eta_sign_all", 50, -2.5, 2.5)
-        self.histograms['eta']['mu2_sign_sel'] = ROOT.TH1F("mu2_eta_sign_sel", "mu2_eta_sign_sel", 50, -2.5, 2.5)
-        self.histograms['eta']['mu2_sign_eff'] = ROOT.TH1F("mu2_eta_sign_eff", "mu2_eta_sign_eff", 50, -2.5, 2.5)
-        self.histograms['eta']['mu2_back_all'] = ROOT.TH1F("mu2_eta_back_all", "mu2_eta_back_all", 50, -2.5, 2.5)
-        self.histograms['eta']['mu2_back_sel'] = ROOT.TH1F("mu2_eta_back_sel", "mu2_eta_back_sel", 50, -2.5, 2.5)
-        self.histograms['eta']['mu2_back_eff'] = ROOT.TH1F("mu2_eta_back_eff", "mu2_eta_back_eff", 50, -2.5, 2.5)
-
 
         
     def readCollections(self,event):
@@ -68,9 +54,10 @@ class Analyzer (object):
                (mu1.p4()+mu2.p4()).M()>80 and (mu1.p4()+mu2.p4()).M()<120.:
                 self.signal=self.signal+1
                 
-                # Fill Plots
-                self.histograms['pt']['mu2_sign_all'].Fill(mu2.pt())
-                self.histograms['eta']['mu2_sign_all'].Fill(mu2.eta())
+                # Fill Plots after signal selection but before any other cut:
+                if self.signPlotBeforeCut is not None:
+                    self.signPlotBeforeCut(mu2.pt(), mu2.eta(), mu2.phi(), mu2.charge(), (mu1.p4()+mu2.p4()).M())
+                    # (add here any variable as argument that you want to have access to)
 
                 # Momentum Scale Corrections
                 if self.processFunc is not None and mu2.isTightMuon(self.vertex) and mu2.chargedHadronIso()/mu2.pt()<0.1:
@@ -93,13 +80,17 @@ class Analyzer (object):
                     if selection['value']<0:
                         if selection['function'](mu2,self.vertex):
                             selection['signal'] = selection['signal']+1
-                            self.histograms['pt']['mu2_sign_sel'].Fill(mu2.pt())
-                            self.histograms['eta']['mu2_sign_sel'].Fill(mu2.eta())
+                            # Fill Plots after user defined cut
+                            if self.signPlotAfterCut is not None:
+                                self.signPlotAfterCut(mu2.pt(), mu2.eta(), mu2.phi(), mu2.charge(), (mu1.p4()+mu2.p4()).M())
+                                # (add here any variable as argument that you want to have access to)
                     else:        
                         if selection['function'](mu2,self.vertex)<selection['value']:
                             selection['signal'] = selection['signal']+1
-                            self.histograms['pt']['mu2_sign_sel'].Fill(mu2.pt())
-                            self.histograms['eta']['mu2_sign_sel'].Fill(mu2.eta())
+                            # Fill Plots after user defined cut
+                            if self.signPlotAfterCut is not None:
+                                self.signPlotAfterCut(mu2.pt(), mu2.eta(), mu2.phi(), mu2.charge(), (mu1.p4()+mu2.p4()).M())
+                                # (add here any variable as argument that you want to have access to)
 
             # background selection
             # --------------------                
@@ -107,20 +98,28 @@ class Analyzer (object):
                and mu1.chargedHadronIso()>5.0 and (mu1.p4()+mu2.p4()).M()<80. \
                and mu1.charge()+mu2.charge() !=0 :
                 self.background=self.background+1
-                self.histograms['pt']['mu2_back_all'].Fill(mu2.pt())
-                self.histograms['eta']['mu2_back_all'].Fill(mu2.eta())
+
+                # Fill Plots after background selection but before any other cut:
+                if self.backPlotBeforeCut is not None:
+                    self.backPlotBeforeCut(mu2.pt(), mu2.eta(), mu2.phi(), mu2.charge(), (mu1.p4()+mu2.p4()).M())
+                    # (add here any variable as argument that you want to have access to)
+
                 # check whether second muon (mu2) passes additional selection cuts (ID, ISO, ...)
                 for name,selection in self.selections.iteritems():
                     if selection['value']<0:
                         if selection['function'](mu2,self.vertex):
                             selection['background'] = selection['background']+1
-                            self.histograms['pt']['mu2_back_sel'].Fill(mu2.pt())
-                            self.histograms['eta']['mu2_back_sel'].Fill(mu2.eta())
+                            # Fill Plots after user defined cut
+                            if self.backPlotAfterCut is not None:
+                                self.backPlotAfterCut(mu2.pt(), mu2.eta(), mu2.phi(), mu2.charge(), (mu1.p4()+mu2.p4()).M())
+                                # (add here any variable as argument that you want to have access to)
                     else:        
                         if selection['function'](mu2,self.vertex)<selection['value']:
                             selection['background'] = selection['background']+1
-                            self.histograms['pt']['mu2_back_sel'].Fill(mu2.pt())
-                            self.histograms['eta']['mu2_back_sel'].Fill(mu2.eta())
+                            # Fill Plots after user defined cut
+                            if self.backPlotAfterCut is not None:
+                                self.backPlotAfterCut(mu2.pt(), mu2.eta(), mu2.phi(), mu2.charge(), (mu1.p4()+mu2.p4()).M())
+                                # (add here any variable as argument that you want to have access to)
 
 
     def summarize(self):
@@ -142,73 +141,6 @@ class Analyzer (object):
             g.Draw("Psame")
             graphs.append(g)
         c.Draw()
-        return c,graphs
-
-    def prepareHisto(self,variable,histoname,scale,style,color):
-        # print "prepareHisto :: arg = "+str(histoname)+str(scale)+str(style)+str(color)
-        self.histograms[variable][histoname].Scale(scale)
-        self.histograms[variable][histoname].SetMarkerStyle(style)
-        self.histograms[variable][histoname].SetMarkerColor(color)
-
-    def plotHistos(self, variable, axislabel, xmin, xmax):
-        graphs=[]
-        c = ROOT.TCanvas("c")
-
-        h = c.DrawFrame(xmin, 0.0, xmax, 100.0)                                                                                                                                                                                                           
-        h.GetXaxis().SetTitle(axislabel)
-        h.GetYaxis().SetTitle("a.u.")
-        graphs.append(h)
-
-        # c.Divide(1,2)
-        # c.cd(1)
-        # p1 = ROOT.TPad(c.GetPad(1))
-        # h1 = p1.DrawFrame(xmin, 0.0, xmax, 100.0)
-        # h1.GetXaxis().SetTitle(axislabel)
-        # h1.GetYaxis().SetTitle("a.u.")
-        # p2 = ROOT.TPad(c.GetPad(2))
-        # h2 = p2.DrawFrame(xmin, 0.0, xmax, 100.0)
-        # h2.GetXaxis().SetTitle(axislabel)
-        # h2.GetYaxis().SetTitle("Eff")
-        # graphs.append(h1)
-        # graphs.append(h2)
-
-        self.prepareHisto(variable,'mu2_sign_all',100.0/self.signal,20,ROOT.kRed)
-        self.prepareHisto(variable,'mu2_sign_sel',100.0/self.signal,24,ROOT.kRed)
-        self.prepareHisto(variable,'mu2_back_all',100.0/self.signal,20,ROOT.kBlue)
-        self.prepareHisto(variable,'mu2_back_sel',100.0/self.signal,24,ROOT.kBlue)
-
-        self.histograms[variable]['mu2_sign_all'].Draw("APsame")
-        self.histograms[variable]['mu2_sign_sel'].Draw("Psame")
-        self.histograms[variable]['mu2_back_all'].Draw("Psame")
-        self.histograms[variable]['mu2_back_sel'].Draw("Psame")
-
-        graphs.append(self.histograms[variable]['mu2_sign_all'])
-        graphs.append(self.histograms[variable]['mu2_sign_sel'])
-        graphs.append(self.histograms[variable]['mu2_back_all'])
-        graphs.append(self.histograms[variable]['mu2_back_sel'])
-
-        # c.Draw()
-        # canvasratio = float(0.2)
-        # c.SetBottomMargin(canvasratio + (1-canvasratio)*c.GetBottomMargin()-canvasratio*c.GetTopMargin())
-        # r = ROOT.TPad("r","",0,0,1,1)
-        # r.SetTopMargin((1-canvasratio) - (1-canvasratio)*r.GetBottomMargin()+canvasratio*r.GetTopMargin())
-        # r.SetTicks(1,1)
-        # r.Draw()
-        # r.cd()
-
-        # c.cd(2)
-        self.histograms[variable]['mu2_sign_eff'].Divide(self.histograms[variable]['mu2_sign_sel'], self.histograms[variable]['mu2_sign_all'], 1, 1, "")
-        self.histograms[variable]['mu2_back_eff'].Divide(self.histograms[variable]['mu2_back_sel'], self.histograms[variable]['mu2_back_all'], 1, 1, "")
-
-        self.prepareHisto(variable,'mu2_sign_eff',100.0,28,ROOT.kRed)
-        self.prepareHisto(variable,'mu2_back_eff',100.0,28,ROOT.kBlue)
-
-        self.histograms[variable]['mu2_sign_eff'].Draw("Psame")
-        self.histograms[variable]['mu2_back_eff'].Draw("Psame")
-        graphs.append(self.histograms[variable]['mu2_sign_eff'])
-        graphs.append(self.histograms[variable]['mu2_back_eff'])
-
-        c.Update()
         return c,graphs
 
     def calculateSignificance(self,s,b):
