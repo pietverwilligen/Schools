@@ -6,6 +6,7 @@ import json
 import math
 ROOT.gSystem.Load("libMuScleFitCalibration")
 
+
 def getFullPath(path):
     return os.environ['CMSSW_BASE']+"/src/"+path
 
@@ -18,20 +19,19 @@ class Analyzer (object):
         self.signal        = 0 # total amount of signal events
         self.background    = 0 # total amount of background events
         self.corrector     = ROOT.MuScleFitCorrector(getFullPath("MuScleFit/Calibration/data/MuScleFit_2012D_DATA_53X.txt"))
-#        self.corrector = ROOT.rochcor2012()
-#        self.corrector = ROOT.MuScleFitCorrector(getFullPath("MuScleFit/Calibration/data/MuScleFit_2012ABC_DATA_53X.txt"))
+        # self.corrector = ROOT.rochcor2012()
+        # self.corrector = ROOT.MuScleFitCorrector(getFullPath("MuScleFit/Calibration/data/MuScleFit_2012ABC_DATA_53X.txt"))
         self.signPlotBeforeCut = None
         self.signPlotAfterCut = None
         self.backPlotBeforeCut = None
         self.backPlotAfterCut = None
         self.processFunc = None
-
         
     def readCollections(self,event):
         event.getByLabel('offlinePrimaryVertices',self.vertexHandle)
         event.getByLabel('selectedPatMuons',self.muonHandle)
         self.muons = self.muonHandle.product()         # take all muons
-        self.vertex = self.vertexHandle.product()[0]   # take only Primary Vertex
+        self.vertex = self.vertexHandle.product()[0]   # take only Primary Vertex (first vertex of vertex vector)
 
 
     def addSelection(self,name,selection,markerStyle,markerColor):
@@ -42,8 +42,8 @@ class Analyzer (object):
         for i in range(0,points):
             self.selections[name+'_'+str(i*offset)] = {'function':selection,'style':markerStyle,'color':markerColor,'signal':0.0,'background':0.0,'value':i*offset}
 
-    def analyze(self):
 
+    def analyze(self):
         for mu1,mu2 in itertools.combinations(self.muons,2):
             # signal selection
             # ----------------
@@ -68,8 +68,8 @@ class Analyzer (object):
                     vectorC2 = ROOT.TLorentzVector(mu2.px(),mu2.py(),mu2.pz(),mu2.energy())
                     self.corrector.applyPtCorrection(vectorC1,mu1.charge())
                     self.corrector.applyPtCorrection(vectorC2,mu2.charge())
-#                    self.corrector.momcor_data(vectorC1, mu1.charge(), 1);
-#                    self.corrector.momcor_data(vectorC2, mu1.charge(), 1);
+                    # self.corrector.momcor_data(vectorC1, mu1.charge(), 1);
+                    # self.corrector.momcor_data(vectorC2, mu1.charge(), 1);
                     if mu1.charge()>0:
                         self.processFunc(vector1,vector2,vectorC1,vectorC2)
                     else:
@@ -87,10 +87,6 @@ class Analyzer (object):
                     else:        
                         if selection['function'](mu2,self.vertex)<selection['value']:
                             selection['signal'] = selection['signal']+1
-                            # Fill Plots after user defined cut
-                            if self.signPlotAfterCut is not None:
-                                self.signPlotAfterCut(mu2.pt(), mu2.eta(), mu2.phi(), mu2.charge(), (mu1.p4()+mu2.p4()).M())
-                                # (add here any variable as argument that you want to have access to)
 
             # background selection
             # --------------------                
@@ -116,10 +112,6 @@ class Analyzer (object):
                     else:        
                         if selection['function'](mu2,self.vertex)<selection['value']:
                             selection['background'] = selection['background']+1
-                            # Fill Plots after user defined cut
-                            if self.backPlotAfterCut is not None:
-                                self.backPlotAfterCut(mu2.pt(), mu2.eta(), mu2.phi(), mu2.charge(), (mu1.p4()+mu2.p4()).M())
-                                # (add here any variable as argument that you want to have access to)
 
 
     def summarize(self):
