@@ -60,7 +60,7 @@ czDiff.SaveAs("diffMass.png")
 chprof = ROOT.TCanvas("chprof","chprof",600,600)
 #chprof.Divide(2,1)
 #chprof.cd(1)
-hprofPos.GetXaxis().SetTitle("#phi [rad]")
+hprofPos.GetXaxis().SetTitle("Muon #phi [rad]")
 hprofPos.GetYaxis().SetTitle("< 1/p_{T} - 1/p_{T,corr} > [1/GeV/c]")
 hprofPos.GetXaxis().SetTitleOffset(1.7);
 hprofPos.GetYaxis().SetTitleOffset(1.8);
